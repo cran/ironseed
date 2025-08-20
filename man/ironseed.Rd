@@ -2,16 +2,31 @@
 % Please edit documentation in R/ironseed.R
 \name{ironseed}
 \alias{ironseed}
-\alias{create_seedseq}
+\alias{set_ironseed}
+\alias{create_ironseed}
+\alias{auto_ironseed}
 \alias{is_ironseed}
 \alias{is_ironseed_str}
 \alias{as_ironseed}
 \alias{parse_ironseed_str}
 \title{Ironseed: Improved Random Number Generator Seeding}
 \usage{
-ironseed(..., set_seed = !has_random_seed(), quiet = FALSE)
+ironseed(
+  ...,
+  set_seed = !has_random_seed(),
+  quiet = FALSE,
+  methods = c("dots", "args", "env", "auto", "null")
+)
 
-create_seedseq(fe, n)
+set_ironseed(
+  ...,
+  quiet = FALSE,
+  methods = c("dots", "args", "env", "auto", "null")
+)
+
+create_ironseed(x)
+
+auto_ironseed()
 
 is_ironseed(x)
 
@@ -28,11 +43,9 @@ parse_ironseed_str(x)
 
 \item{quiet}{a logical indicating whether to silence messages.}
 
-\item{fe}{an ironseed}
+\item{methods}{a character vector.}
 
-\item{n}{a scalar integer specifying the number of seeds to generate}
-
-\item{x}{a string, ironseed, or other object}
+\item{x}{a string, ironseed, list, or other object}
 }
 \value{
 An ironseed. If \code{.Random.seed} was initialized, the ironseed used
@@ -43,10 +56,14 @@ An ironseed is a 256-bit hash digest constructed from a variable-length
 input sequence and can be used to generate a variable-length output sequence
 of seeds, including initializing R's built-in random number generator.
 \itemize{
-\item \code{ironseed()} creates an ironseed from user supplied objects or
-automatically from multiple sources of entropy on the local system. It also
-initializes R's built-in random number generator from an ironseed.
-\item \code{create_seqseq()} uses an ironseed to generate a sequence of 32-bit seeds.
+\item \code{ironseed()} creates an ironseed from user supplied objects, from external
+arguments, or automatically from multiple sources of entropy on the local
+system. It also initializes R's built-in random number generator from an
+ironseed.
+\item \code{set_ironseed()} calls \code{ironseed()} with set_seed = TRUE.
+\item \code{create_ironseed()} constructs an ironseed from a list of seed objects,
+following the rules described below. \code{auto_ironseed()} constructs an
+ironseed from multiple sources of entropy on the local system.
 \item \code{is_ironseed()} tests whether an object is an ironseed, and
 \code{is_ironseed_str()} tests if it is a string representing and ironseed.
 \item \code{as_ironseed()} casts an object to an ironseed, and \code{parse_ironseed_str()}
@@ -62,18 +79,36 @@ Parameter \code{set_seed} defaults to \code{TRUE} if \code{.Random.seed} does no
 exist and \code{FALSE} otherwise.
 
 Ironseed behaves differently depending on the number of arguments passed as
-\code{...}.
+\code{...} and the value of \code{methods}. If \code{...} has a length of zero \strong{and}
+initialization is disabled, then \code{ironseed()} returns the last ironseed used
+to initialize \code{.Random.seed}. Otherwise, it generates an ironseed from an
+input sequence according to the methods included in \code{methods}.
+
+When generating an ironseed, \code{ironseed()} tries the listed methods starting
+from the first value and continuing until it can generate an ironseed. If no
+method works, an error will be raised.
 \itemize{
-\item 0 arguments: If initialization is enabled, \code{ironseed()} generates an
-automatic ironseed. Otherwise, \code{ironseed()} returns the last ironseed used
-to initialize \code{.Random.seed}.
-\item 1 argument: \code{ironseed(NULL)} generates an automatic ironseed. For
-\code{ironseed(x)}, if \code{x} is an ironseed object, it is used as is. If \code{x}, is
-a scalar character that matches an ironseed string, it is parsed to an
-ironseed. Otherwise, \code{x} hashed to create an ironseed.
-\item 2+ arguments: \code{ironseed(x,y,...)} hashes the arguments to create an
-ironseed.
+\item dots: Use the values passed as \code{...} to construct an ironseed. Most atomic
+types and lists of atomic types can be used. \code{ironseed()} and
+\code{ironseed(NULL)} are considered empty inputs and the next method will be
+tried.
+\item args: Use command line arguments to construct an ironseed. Any arguments
+that begins with \verb{--seed=} or \verb{-seed=} will be used as strings, after the
+argument names are trimmed. If no matching arguments are found, the next
+method will be tried.
+\item env: Use the value of the environmental variable "IRONSEED" as a scalar
+character to construct an ironseed. If this variable doesn't exist or is set
+to an empty string, the next method will be tried.
+\item auto: Use multiple sources of entropy from the system to generate an
+ironseed. This method always constructs an ironseed.
+\item null: Generate a "default" ironseed using no input. This method always
+constructs an ironseed.
 }
+
+If the input sequence has one value and it is an ironseed object, it is used
+as is. If the input sequence is a scalar character that matches an ironseed
+string, it is parsed to an ironseed. Otherwise, the input sequence is hashed
+to create an ironseed.
 
 An ironseed is a finite-entropy (or fixed-entropy) hash digest that can be
 used to generate an unlimited sequence of seeds for initializing the state of
@@ -90,6 +125,10 @@ Multilinear hashes are also used to generate an output seed sequence from an
 ironseed. Each 32-bit output value is generated by uniquely hashing the
 sub-digests. The coefficients for the output are generated by a second
 Weyl sequence.
+
+To improve the observed randomness of each hash output, bits are mixed using
+a finalizer adapted from SplitMix64. With the additional mixing from the
+finalizer, the output seed sequence passes PractRand tests.
 }
 \examples{
 
@@ -97,11 +136,16 @@ Weyl sequence.
 oldseed <- ironseed::get_random_seed()
 }
 
-# Generate an ironseed with user supplied data
+# Generate an ironseed with user supplied data.
+# This will initialize an uninitialized `.Random.seed`.
 ironseed::ironseed("Experiment", 20251031, 1)
 
-# Generate an ironseed automatically and initialize `.Random.seed` with it
+# Generate an ironseed automatically and force initialize
+# `.Random.seed` with it.
 ironseed::ironseed(set_seed = TRUE)
+
+# Return last used ironseed.
+ironseed::ironseed()
 
 \dontshow{
 ironseed::set_random_seed(oldseed)
@@ -117,10 +161,13 @@ ironseed::set_random_seed(oldseed)
 \item O’Neill (2015) Random-Number Utilities.
 \url{https://gist.github.com/imneme/540829265469e673d045}
 \item Lemire and Kaser (2018) Strongly universal string hashing is fast.
-\url{http://arxiv.org/pdf/1202.4961}
+\url{https://arxiv.org/pdf/1202.4961}
+\item Steele et al. (2014) Fast splittable pseudorandom number generators.
+\doi{10.1145/2714064.2660195}
 \item Weyl Sequence \url{https://en.wikipedia.org/wiki/Weyl_sequence}
+\item PractRand \url{https://pracrand.sourceforge.net/}
 }
 }
 \seealso{
-\link{.Random.seed}
+\link{set.seed} \link{.Random.seed}
 }

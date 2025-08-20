@@ -2,57 +2,93 @@
 # Use 'define()' to define configuration variables.
 # Use 'configure_file()' to substitute configuration values.
 
-Rcmd <- function(args, ...) {
-  system2(file.path(R.home("bin"), "R"), c("CMD", args), ...)
-}
-
 # defaults
 define(
-  DEFINE_HAVE_ARC4RANDOM = "//#define HAVE_ARC4RANDOM",
-  DEFINE_HAVE_GETENTROPY = "//#define HAVE_GETENTROPY"
+  DEFINE_HAS_ARC4RANDOM = "//#define HAS_ARC4RANDOM",
+  DEFINE_HAS_GETENTROPY = "//#define HAS_GETENTROPY",
+  DEFINE_HAS_GETHOSTNAME = "//#define HAS_GETHOSTNAME"
 )
+
+enable <- function(n) {
+  n <- paste0("DEFINE_", n)
+  db <- configure_database()
+  val <- db[[n]]
+  stopifnot(!is.null(val))
+  db[[n]] <- sub("^/*", "", val)
+  invisible(val)
+}
+
+disable <- function(n) {
+  n <- paste0("DEFINE_", n)
+  db <- configure_database()
+  val <- db[[n]]
+  stopifnot(!is.null(val))
+  db[[n]] <- sub("^/*", "//", val)
+  invisible(val)
+}
+
+CC <- r_cmd_config("CC")
+CPPFLAGS <- r_cmd_config("CPPFLAGS")
+CPICFLAGS <- r_cmd_config("CPICFLAGS")
+CFLAGS <- r_cmd_config("CFLAGS")
+CCMD <- paste(CC, CPPFLAGS, CPICFLAGS, CFLAGS)
 
 check_compile <- function(tmpl, name) {
   message(sprintf("*** Looking for %s...", name))
-  verbose <- if (configure_verbose()) "" else FALSE
-
-  f <- tempfile()
-  ensure_directory(f)
-  cfile <- file.path(f, "test.c")
+  cfile <- tempfile("conftest-", fileext = ".c")
+  ofile <- sub(".c$", ".o", cfile)
   writeLines(tmpl, cfile)
-  ret <- Rcmd(c("COMPILE", cfile), stdout = verbose, stderr = verbose)
-  message(sprintf("**** %s: %s", if (ret == 0) "Found" else "Not found", name))
-  remove_file(f)
-  ret == 0
+  cmd <- paste(CCMD, "-c", shQuote(cfile), "-o", shQuote(ofile))
+  if (configure_verbose()) {
+    message(cmd)
+  }
+  ret <- system(cmd)
+  message(sprintf("**** %s: %s", if (ret) "Not found" else "Found", name))
+  remove_file(cfile, verbose = FALSE)
+  remove_file(ofile, verbose = FALSE)
+
+  !ret
 }
 
 if (.Platform$OS.type != "windows") {
   # Check for arc4random
   tmpl <- "
 #pragma GCC diagnostic error \"-Wimplicit-function-declaration\"
-#define _POSIX_C_SOURCE 200809L
-#define _GNU_SOURCE
 #include <stdlib.h>
-int f() {
+int f(void) {
   return arc4random();
 }
 "
   if (check_compile(tmpl, "arc4random()")) {
-    define(DEFINE_HAVE_ARC4RANDOM = "#define HAVE_ARC4RANDOM")
+    enable("HAS_ARC4RANDOM")
   }
 
   # Check for getentropy
   tmpl <- "
 #pragma GCC diagnostic error \"-Wimplicit-function-declaration\"
-#define _POSIX_C_SOURCE 200809L
-#define _GNU_SOURCE
 #include <unistd.h>
-int f() {
+int f(void) {
   unsigned int u;
   return getentropy(&u, sizeof(u));
 }
 "
   if (check_compile(tmpl, "getentropy()")) {
-    define(DEFINE_HAVE_GETENTROPY = "#define HAVE_GETENTROPY")
+    enable("HAS_GETENTROPY")
   }
+}
+
+# Check for gethostname
+tmpl <- "
+#pragma GCC diagnostic error \"-Wimplicit-function-declaration\"
+#include <unistd.h>
+#ifdef _WIN32
+#include <winsock2.h>
+#endif
+int f(void) {
+  char buffer[256];
+  return gethostname(buffer, sizeof(buffer));
+}
+"
+if (check_compile(tmpl, "gethostname()")) {
+  enable("HAS_GETHOSTNAME")
 }

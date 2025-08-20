@@ -1,4 +1,3 @@
-/*
 # MIT License
 #
 # Copyright (c) 2025 Reed A. Cartwright <racartwright@gmail.com>
@@ -20,31 +19,11 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-*/
 
-#include "init.h"
-
-#include <R_ext/Rdynload.h>
-#include <R_ext/Visibility.h>
-
-static const R_CallMethodDef callMethods[] = {
-  {"R_create_ironseed", (DL_FUNC)&R_create_ironseed, 1},
-  {"R_auto_ironseed", (DL_FUNC)&R_auto_ironseed, 0},
-  {"R_create_seedseq", (DL_FUNC)&R_create_seedseq, 3},
-  {"R_base58_encode64", (DL_FUNC)&R_base58_encode64, 1},
-  {"R_base58_decode64", (DL_FUNC)&R_base58_decode64, 1},
-  {"R_ironseed_config", (DL_FUNC)&R_ironseed_config, 0},
-  {NULL, NULL, 0}
-};
-
-void attribute_visible R_init_ironseed(DllInfo *info) {
-  R_registerRoutines(info, NULL, callMethods, NULL, NULL);
-  R_useDynamicSymbols(info, FALSE);
-  R_forceSymbols(info, TRUE);
+simplify_list <- function(x) {
+  if (length(x) == 1L && is.null(names(x)) && is.list(x[[1L]])) {
+    x[[1L]]
+  } else {
+    x
+  }
 }
-
-// #nocov start
-void attribute_visible R_unload_ironseed(DllInfo *info) {
-  (void)info;  // do nothing
-}
-// #nocov end
