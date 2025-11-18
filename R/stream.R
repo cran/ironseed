@@ -65,7 +65,7 @@ ironseed_stream <- function(
   ...,
   methods = c("dots", "args", "env", "auto", "null")
 ) {
-  fe <- ironseed(..., set_seed = NA, quiet = TRUE, methods = methods)
+  fe <- ironseed(..., set_seed = FALSE, quiet = TRUE, methods = methods)
   k <- NULL
   function(n) {
     if (missing(n)) {

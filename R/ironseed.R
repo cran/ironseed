@@ -33,8 +33,12 @@
 #'  system. It also initializes R's built-in random number generator from an
 #'  ironseed.
 #'
-#' - `set_ironseed()` calls `ironseed()` with set_seed = TRUE.
-
+#' - `get_ironseed()` returns the ironseed most recently used to initialize
+#'   `.Random.seed`.
+#'
+#' - `set_ironseed()` is a wrapper around `ironseed()` for initializing
+#'   `.Random.seed` with user-supplied data.
+#'
 #' - `create_ironseed()` constructs an ironseed from a list of seed objects,
 #'   following the rules described below. `auto_ironseed()` constructs an
 #'   ironseed from multiple sources of entropy on the local system.
@@ -60,18 +64,11 @@
 #' "rBQSjhjYv1d-z8dfMATEicf-sw1NSWAvVDi-bQaKSKKQmz1", where each element is a
 #' 64-bit number encoded in little-endian base58 format.
 #'
-#' Parameter `set_seed` defaults to `TRUE` if `.Random.seed` does not already
-#' exist and `FALSE` otherwise.
-#'
-#' Ironseed behaves differently depending on the number of arguments passed as
-#' `...` and the value of `methods`. If `...` has a length of zero **and**
-#' initialization is disabled, then `ironseed()` returns the last ironseed used
-#' to initialize `.Random.seed`. Otherwise, it generates an ironseed from an
-#' input sequence according to the methods included in `methods`.
-#'
-#' When generating an ironseed, `ironseed()` tries the listed methods starting
-#' from the first value and continuing until it can generate an ironseed. If no
-#' method works, an error will be raised.
+#' Ironseed generates an ironseed from an input sequence according to the
+#' methods included in `methods`. When generating an ironseed, `ironseed()`
+#' tries the listed methods starting from the first value and continuing
+#' until it can generate an ironseed. If no method works, an error will be
+#' raised.
 #'
 #' - dots: Use the values passed as `...` to construct an ironseed. Most atomic
 #' types and lists of atomic types can be used. `ironseed()` and
@@ -138,7 +135,6 @@
 #'
 #' @export
 #' @examples
-#'
 #' \dontshow{
 #' oldseed <- ironseed::get_random_seed()
 #' }
@@ -148,11 +144,10 @@
 #' ironseed::ironseed("Experiment", 20251031, 1)
 #'
 #' # Generate an ironseed automatically and force initialize
-#' # `.Random.seed` with it.
 #' ironseed::ironseed(set_seed = TRUE)
 #'
 #' # Return last used ironseed.
-#' ironseed::ironseed()
+#' ironseed::get_ironseed()
 #'
 #' \dontshow{
 #' ironseed::set_random_seed(oldseed)
@@ -160,12 +155,11 @@
 #'
 ironseed <- function(
   ...,
-  set_seed = !has_random_seed(),
+  set_seed = TRUE,
   quiet = FALSE,
   methods = c("dots", "args", "env", "auto", "null")
 ) {
   x <- list(...)
-  n <- length(x)
 
   if (!is.null(names(x))) {
     stop(
@@ -175,10 +169,6 @@ ironseed <- function(
     )
   }
 
-  # return the previous ironseed object
-  if (n == 0L && isFALSE(set_seed)) {
-    return(the$ironseed)
-  }
   fe <- NULL
   for (method in methods) {
     fe <- switch(
@@ -198,31 +188,31 @@ ironseed <- function(
     stop("Unable to construct an ironseed.", call. = FALSE)
   }
 
-  # do not set seed if seed is FALSE or NA
-  if (!isTRUE(set_seed)) {
-    return(fe)
+  if (isTRUE(set_seed)) {
+    fill_random_seed(fe, quiet = quiet)
+    the$ironseed <- fe
   }
 
-  fill_random_seed(fe, quiet = quiet)
-  the$ironseed <- fe
   invisible(fe)
 }
 
 #' @export
 #' @rdname ironseed
-set_ironseed <- function(
-  ...,
-  quiet = FALSE,
-  methods = c("dots", "args", "env", "auto", "null")
-) {
-  ironseed(..., set_seed = TRUE, quiet = quiet, methods = methods)
+set_ironseed <- function(x, ..., quiet = FALSE) {
+  ironseed(x, ..., quiet = quiet, set_seed = TRUE, methods = "dots")
+}
+
+#' @export
+#' @rdname ironseed
+get_ironseed <- function() {
+  the$ironseed
 }
 
 #' @export
 #' @rdname ironseed
 create_ironseed <- function(x) {
   n <- length(x)
-  if (n == 0L || (n == 1L && is.null(x[[1]]))) {
+  if (n == 0L) {
     NULL
   } else if (n == 1L && is_ironseed2(x[[1]])) {
     as_ironseed(x[[1]])
@@ -232,16 +222,26 @@ create_ironseed <- function(x) {
 }
 
 # Extract ironseed inputs from command line arguments
-args_ironseed <- function() {
-  x <- commandArgs(trailingOnly = TRUE)
-  x <- x[grepl("^--?seed=", x)]
-  x <- sub("^[^=]*=", "", x)
-  create_ironseed(x)
+args_ironseed <- function(x = commandArgs(trailingOnly = TRUE)) {
+  # remove -- and any args after it
+  m <- match("--", x)
+  x <- x[is.na(m) | seq_along(x) < m]
+  # identify arguments
+  p <- grep("^--?seed(=.*)?$", x)
+  # identify arguments that have a separate option
+  b <- grepl("^--?seed$", x[p])
+
+  # construct seed vector
+  y <- character(length(b))
+  y[b] <- x[p[b] + 1]
+  y[!b] <- sub("^--?seed=", "", x[p[!b]])
+  y <- y[!is.na(y)]
+
+  create_ironseed(y)
 }
 
 # Extract ironseed input from environment
-env_ironseed <- function() {
-  x <- Sys.getenv("IRONSEED")
+env_ironseed <- function(x = Sys.getenv("IRONSEED")) {
   if (is.character(x) && length(x) == 1L && (is.na(x) || nchar(x) == 0L)) {
     NULL
   } else {
