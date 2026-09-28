@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2025 Reed A. Cartwright <racartwright@gmail.com>
+# Copyright (c) 2025-2026 Reed A. Cartwright <racartwright@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +34,13 @@
 #' @param code Code to execute in the temporary environment.
 #' @param .local_envir The environment to use for scoping.
 #'
+#'
 #' @returns `with_ironseed()` returns the results of the evaluation of the code
 #' argument. `local_ironseed()` returns the constructed ironseed.
+#'
+#' @details
+#'
+#' If `seeds` is `list()`, then the ironseed will be constructed automatically.
 #'
 #' @seealso [ironseed] [ironseed_stream]
 #'
@@ -43,12 +48,13 @@
 with_ironseed <- function(
   seeds,
   code,
-  quiet = FALSE
+  quiet = FALSE,
+  salt = 0L
 ) {
   old_ironseed <- the$ironseed
   seeds <- simplify_list(list(seeds))
-  fe <- create_ironseed(seeds)
-  old_seed <- fill_random_seed(fe, quiet = quiet)
+  fe <- create_ironseed(seeds) %||% auto_ironseed()
+  old_seed <- fill_random_seed(fe, quiet = quiet, salt = salt)
   the$ironseed <- fe
   on.exit({
     the$ironseed <- old_ironseed
@@ -63,13 +69,14 @@ local_ironseed <- function(
   seeds,
   ...,
   quiet = FALSE,
+  salt = 0L,
   .local_envir = parent.frame()
 ) {
   old_ironseed <- the$ironseed
   seeds <- simplify_list(list(seeds))
   seeds <- c(seeds, list(...))
-  fe <- create_ironseed(seeds)
-  old_seed <- fill_random_seed(fe, quiet = quiet)
+  fe <- create_ironseed(seeds) %||% auto_ironseed()
+  old_seed <- fill_random_seed(fe, quiet = quiet, salt = salt)
   the$ironseed <- fe
   defer(envir = .local_envir, {
     the$ironseed <- old_ironseed

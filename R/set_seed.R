@@ -1,6 +1,6 @@
 # MIT License
 #
-# Copyright (c) 2025 Reed A. Cartwright <racartwright@gmail.com>
+# Copyright (c) 2025-2026 Reed A. Cartwright <racartwright@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -25,13 +25,14 @@
 #' @param fe an ironseed or ironseed stream function
 #' @param seed a previous `.Random.seed`
 #' @param quiet a logical indicating whether to silence messages.
+#' @param salt a scalar integer. Used to vary RNG seeding between applications.
 #'
 #' @returns `fill_random_seed()` returns the previous value of `.Random.seed` or
 #' `NULL`.
 #'
 #' @export
 #' @keywords internal
-fill_random_seed <- function(fe, quiet = FALSE) {
+fill_random_seed <- function(fe, quiet = FALSE, salt = 0L) {
   stopifnot(is_ironseed(fe) || is.function(fe))
   if (is_ironseed(fe) && isFALSE(quiet)) {
     msg <- sprintf(
@@ -50,8 +51,11 @@ fill_random_seed <- function(fe, quiet = FALSE) {
 
   # generate a seed sequence of the correct length
   if (is_ironseed(fe)) {
-    seed[-1] <- create_seedseq(fe, length(seed) - 1)
+    seed[-1] <- create_seedseq(fe, length(seed) - 1, salt = salt)
   } else {
+    if (!missing(salt) && isFALSE(quiet)) {
+      warning("ignoring `salt` when using a stream to generate random seeds")
+    }
     seed[-1] <- fe(length(seed) - 1)
   }
 
@@ -61,7 +65,9 @@ fill_random_seed <- function(fe, quiet = FALSE) {
     seed[2] <- 624L
   }
   # update .Random.seed with our own state
+  # nolint start(object_name_linter)
   assign(".Random.seed", seed, globalenv(), inherits = FALSE)
+  # nolint end
   # draw one value to trigger seed fixup
   stats::runif(1)
   # return old seed
@@ -94,7 +100,9 @@ get_random_seed <- function() {
 set_random_seed <- function(seed) {
   oldseed <- get_random_seed()
   if (!is.null(seed)) {
+    # nolint start(object_name_linter)
     assign(".Random.seed", seed, globalenv(), inherits = FALSE)
+    # nolint end
   } else if (!is.null(oldseed)) {
     rm_random_seed()
   }

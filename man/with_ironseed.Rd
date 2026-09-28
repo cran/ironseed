@@ -7,9 +7,15 @@
 \alias{local_ironseed_stream}
 \title{Temporary ironseeds}
 \usage{
-with_ironseed(seeds, code, quiet = FALSE)
+with_ironseed(seeds, code, quiet = FALSE, salt = 0L)
 
-local_ironseed(seeds, ..., quiet = FALSE, .local_envir = parent.frame())
+local_ironseed(
+  seeds,
+  ...,
+  quiet = FALSE,
+  salt = 0L,
+  .local_envir = parent.frame()
+)
 
 with_ironseed_stream(func, code)
 
@@ -22,6 +28,8 @@ ironseed.}
 \item{code}{Code to execute in the temporary environment.}
 
 \item{quiet}{a logical indicating whether to silence messages.}
+
+\item{salt}{a scalar integer. Used to vary RNG seeding between applications.}
 
 \item{...}{Additional objects.}
 
@@ -37,6 +45,9 @@ argument. \code{local_ironseed()} returns the constructed ironseed.
 \code{with_ironseed()} runs code with a specific ironseed and restores global
 state afterwards. \code{local_ironseed()} restores global state when the current
 evaluation state ends.
+}
+\details{
+If \code{seeds} is \code{list()}, then the ironseed will be constructed automatically.
 }
 \seealso{
 \link{ironseed} \link{ironseed_stream}

@@ -9,10 +9,10 @@ ironseed:::rm_random_seed()
 
 expect_false(has_random_seed())
 expect_message(expect_equal(
-  with_ironseed("MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3", {
+  with_ironseed("rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN", {
     get_ironseed()
   }),
-  as_ironseed("MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3")
+  as_ironseed("rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN")
 ))
 expect_false(has_random_seed())
 
@@ -31,16 +31,39 @@ expect_equal(
   create_ironseed(list(1L, "2"))
 )
 
-rng_kind <- RNGkind("Knuth-TAOCP-2002")
-expect_silent(expect_equal(
+expect_equal(
   with_ironseed(
-    "MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3",
+    "rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN",
     {
       sample(1000, 4L)
     },
     quiet = TRUE
   ),
-  c(196, 671, 825, 922)
+  c(895, 787, 223, 492)
+)
+
+expect_equal(
+  with_ironseed(
+    "rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN",
+    {
+      sample(1000, 4L)
+    },
+    quiet = TRUE,
+    salt = 1L
+  ),
+  c(246, 138, 446, 335)
+)
+
+rng_kind <- RNGkind("Knuth-TAOCP-2002")
+expect_silent(expect_equal(
+  with_ironseed(
+    "rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN",
+    {
+      sample(1000, 4L)
+    },
+    quiet = TRUE
+  ),
+  c(435, 301, 980, 179)
 ))
 
 # with_ironseed restores original seed
@@ -48,30 +71,31 @@ set.seed(1)
 oldseed <- get_random_seed()
 expect_equal(
   with_ironseed(
-    "MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3",
+    "rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN",
     {
       get_ironseed()
     },
     quiet = TRUE
   ),
-  as_ironseed("MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3")
+  as_ironseed("rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN")
 )
 expect_equal(.Random.seed, oldseed)
 
 RNGkind(rng_kind[1])
 
-#### local_ironseed() ##########################################################
+#### local_ironseed ############################################################
+
 set_random_seed(reallyoldseed)
 set.seed(1)
 oldseed <- get_random_seed()
 
 local({
   expect_message(
-    local_ironseed("MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3")
+    local_ironseed("rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN")
   )
   expect_equal(
     get_ironseed(),
-    as_ironseed("MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3")
+    as_ironseed("rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN")
   )
   runif(1L)
 })
@@ -111,34 +135,68 @@ expect_equal(
 
 expect_equal(.Random.seed, oldseed)
 
-#### with_ironseed_stream() ####################################################
+local({
+  local_ironseed(
+    "rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN",
+    quiet = TRUE
+  )
+  expect_equal(sample(1000, 4L), c(895, 787, 223, 492))
+})
 
-one_fe <- create_ironseed("MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3")
+expect_equal(.Random.seed, oldseed)
+
+local({
+  local_ironseed(
+    "rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN",
+    quiet = TRUE,
+    salt = 1L
+  )
+  expect_equal(sample(1000, 4L), c(246, 138, 446, 335))
+})
+
+expect_equal(.Random.seed, oldseed)
+
+#### with_ironseed_stream ######################################################
+
+one_fe <- create_ironseed("rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN")
 one_fe_stream <- ironseed_stream(one_fe)
 
 expect_equal(
   with_ironseed_stream(one_fe_stream, sample(1000L, 4L)),
-  c(847, 79, 597, 201)
+  c(895, 787, 223, 492)
 )
 
 expect_equal(
   with_ironseed_stream(one_fe_stream, sample(1000L, 4L)),
-  c(45, 874, 577, 245)
+  c(508, 639, 488, 775)
 )
 
-#### local_ironseed_stream() ###################################################
+one_fe_stream <- ironseed_stream(one_fe, salt = 1L)
+expect_equal(
+  with_ironseed_stream(one_fe_stream, sample(1000L, 4L)),
+  c(246, 138, 446, 335)
+)
 
-one_fe <- create_ironseed("MaCM14iELpK-kHC2xsg6eCN-pCz7W9fiMDf-AcW65VfB6p3")
+#### local_ironseed_stream #####################################################
+
+one_fe <- create_ironseed("rja6yUo7nzY-HiipyxWr92j-WiTLWpofQsB-zwNpz6V55tN")
 one_fe_stream <- ironseed_stream(one_fe)
 
 local({
   local_ironseed_stream(one_fe_stream)
-  expect_equal(sample(1000L, 4L), c(847, 79, 597, 201))
+  expect_equal(sample(1000L, 4L), c(895, 787, 223, 492))
 })
 
 local({
   local_ironseed_stream(one_fe_stream)
-  expect_equal(sample(1000L, 4L), c(45, 874, 577, 245))
+  expect_equal(sample(1000L, 4L), c(508, 639, 488, 775))
+})
+
+one_fe_stream <- ironseed_stream(one_fe, salt = 1L)
+
+local({
+  local_ironseed_stream(one_fe_stream)
+  expect_equal(sample(1000L, 4L), c(246, 138, 446, 335))
 })
 
 #### Cleanup ###################################################################
